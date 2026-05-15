@@ -5,8 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "dev:all": "npm-run-all --parallel dev convex",
-    "convex": "convex dev",
-    "build": "convex deploy --cmd \"next build\" --cmd-url-env-var-name NEXT_PUBLIC_CONVEX_URL",
+    "convex": "node node_modules/convex/bin/main.js dev",
+    "build": "node node_modules/convex/bin/main.js deploy --cmd \"next build\" --cmd-url-env-var-name NEXT_PUBLIC_CONVEX_URL",
     "build:next": "next build",
     "start": "next start",
     "lint": "next lint",
