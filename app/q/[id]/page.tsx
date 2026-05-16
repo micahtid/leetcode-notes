@@ -45,6 +45,9 @@ export default function QuestionViewPage({
       <PageHeader
         title={question.title}
         back={{ href: "/", label: "All Questions" }}
+        titleSuffix={
+          <DifficultyChip value={question.difficulty as Difficulty} />
+        }
         action={
           <Link href={`/q/${id}/edit`} className="btn btn-ghost">
             <Pencil size={14} strokeWidth={2} />
@@ -52,10 +55,6 @@ export default function QuestionViewPage({
           </Link>
         }
       />
-
-      <div className="mb-6">
-        <DifficultyChip value={question.difficulty as Difficulty} />
-      </div>
 
       {question.body.trim() ? (
         <Markdown source={question.body} />
