@@ -10,7 +10,7 @@ import { DifficultyChip, type Difficulty } from "../components/DifficultyChip";
 import { Markdown } from "../components/Markdown";
 import {
   applyReview,
-  relativeIntervalLabel,
+  relativeDueLabel,
   type Rating,
 } from "../../lib/srs";
 
@@ -36,7 +36,6 @@ export default function ReviewPage() {
   // immediately recompute Convex's view and skip the card you just rated.
   const [queue, setQueue] = useState<DueCard[] | undefined>(undefined);
   const [index, setIndex] = useState(0);
-  const [revealed, setRevealed] = useState(false);
   const [reviewedCount, setReviewedCount] = useState(0);
   const [pending, setPending] = useState(false);
 
@@ -51,10 +50,11 @@ export default function ReviewPage() {
   const previews = useMemo(() => {
     if (!current) return null;
     const ratings: Rating[] = ["forgot", "hard", "good", "easy"];
+    const now = Date.now();
     return Object.fromEntries(
       ratings.map((r) => {
-        const next = applyReview(current, r);
-        return [r, relativeIntervalLabel(next.intervalDays)];
+        const next = applyReview(current, r, now);
+        return [r, relativeDueLabel(next.dueDate, now)];
       }),
     ) as Record<Rating, string>;
   }, [current]);
@@ -65,8 +65,8 @@ export default function ReviewPage() {
     try {
       await review({ id: current._id, rating });
       setReviewedCount((n) => n + 1);
-      setRevealed(false);
       setIndex((i) => i + 1);
+      window.scrollTo({ top: 0, behavior: "smooth" });
     } finally {
       setPending(false);
     }
@@ -75,13 +75,12 @@ export default function ReviewPage() {
   function restart() {
     setQueue(undefined);
     setIndex(0);
-    setRevealed(false);
     setReviewedCount(0);
   }
 
   if (queue === undefined) {
     return (
-      <main className="flex-1 max-w-2xl mx-auto w-full px-5 sm:px-6 py-10 sm:py-12">
+      <main className="flex-1 max-w-3xl mx-auto w-full px-5 sm:px-6 py-10 sm:py-12">
         <PageHeader
           title="Review"
           back={{ href: "/", label: "All Questions" }}
@@ -93,7 +92,7 @@ export default function ReviewPage() {
 
   if (queue.length === 0) {
     return (
-      <main className="flex-1 max-w-2xl mx-auto w-full px-5 sm:px-6 py-10 sm:py-12 animate-page-in">
+      <main className="flex-1 max-w-3xl mx-auto w-full px-5 sm:px-6 py-10 sm:py-12 animate-page-in">
         <PageHeader
           title="Review"
           back={{ href: "/", label: "All Questions" }}
@@ -116,7 +115,7 @@ export default function ReviewPage() {
 
   if (!current) {
     return (
-      <main className="flex-1 max-w-2xl mx-auto w-full px-5 sm:px-6 py-10 sm:py-12 animate-page-in">
+      <main className="flex-1 max-w-3xl mx-auto w-full px-5 sm:px-6 py-10 sm:py-12 animate-page-in">
         <PageHeader
           title="Review Complete"
           back={{ href: "/", label: "All Questions" }}
@@ -143,19 +142,20 @@ export default function ReviewPage() {
 
   const tags = current.tags ?? [];
   const remaining = queue.length - index;
+  const progress = `${remaining} card${remaining === 1 ? "" : "s"} to go${
+    reviewedCount > 0 ? ` · ${reviewedCount} done` : ""
+  }`;
 
   return (
-    <main className="flex-1 max-w-2xl mx-auto w-full px-5 sm:px-6 py-10 sm:py-12 animate-page-in">
+    <main className="flex-1 max-w-3xl mx-auto w-full px-5 sm:px-6 py-10 sm:py-12 animate-page-in">
       <PageHeader
         title="Review"
         back={{ href: "/", label: "All Questions" }}
-        subtitle={`${remaining} card${remaining === 1 ? "" : "s"} to go${
-          reviewedCount > 0 ? ` · ${reviewedCount} done` : ""
-        }`}
+        subtitle={progress}
       />
 
-      <article className="card p-6 sm:p-8 flex flex-col gap-5">
-        <div className="flex items-center gap-3 flex-wrap">
+      <article>
+        <div className="flex items-center gap-3 flex-wrap mb-3">
           <h2 className="text-xl sm:text-2xl font-medium tracking-tight">
             {current.title}
           </h2>
@@ -163,7 +163,7 @@ export default function ReviewPage() {
         </div>
 
         {tags.length > 0 ? (
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2 mb-6">
             {tags.map((t) => (
               <span key={t} className="chip">
                 {t}
@@ -172,61 +172,47 @@ export default function ReviewPage() {
           </div>
         ) : null}
 
-        <div className="border-t border-ink-200 pt-5">
-          {revealed ? (
-            current.body.trim() ? (
-              <Markdown source={current.body} />
-            ) : (
-              <p className="text-sm text-ink-500 italic">
-                No notes for this card yet.
-              </p>
-            )
-          ) : (
-            <div className="flex flex-col items-center justify-center py-10 gap-4">
-              <p className="text-sm text-ink-500 text-center max-w-sm">
-                Think through your approach, then reveal your notes.
-              </p>
-              <button
-                type="button"
-                onClick={() => setRevealed(true)}
-                className="btn btn-primary"
-              >
-                Show Notes
-              </button>
-            </div>
-          )}
-        </div>
+        {current.body.trim() ? (
+          <Markdown source={current.body} />
+        ) : (
+          <p className="text-sm text-ink-500 italic">
+            No notes for this card yet.
+          </p>
+        )}
       </article>
 
-      {revealed && previews ? (
-        <div className="mt-6 grid grid-cols-2 sm:grid-cols-4 gap-2">
-          <RateButton
-            label="Forgot"
-            sub={previews.forgot}
-            disabled={pending}
-            onClick={() => rate("forgot")}
-          />
-          <RateButton
-            label="Hard"
-            sub={previews.hard}
-            disabled={pending}
-            onClick={() => rate("hard")}
-          />
-          <RateButton
-            label="Good"
-            sub={previews.good}
-            disabled={pending}
-            onClick={() => rate("good")}
-          />
-          <RateButton
-            label="Easy"
-            sub={previews.easy}
-            disabled={pending}
-            onClick={() => rate("easy")}
-            emphasize
-          />
-        </div>
-      ) : null}
+      <div className="mt-10 pt-6 border-t border-ink-200">
+        <p className="eyebrow mb-3">How well did you remember it?</p>
+        {previews ? (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <RateButton
+              label="Forgot"
+              sub={previews.forgot}
+              disabled={pending}
+              onClick={() => rate("forgot")}
+            />
+            <RateButton
+              label="Hard"
+              sub={previews.hard}
+              disabled={pending}
+              onClick={() => rate("hard")}
+            />
+            <RateButton
+              label="Good"
+              sub={previews.good}
+              disabled={pending}
+              onClick={() => rate("good")}
+            />
+            <RateButton
+              label="Easy"
+              sub={previews.easy}
+              disabled={pending}
+              onClick={() => rate("easy")}
+              emphasize
+            />
+          </div>
+        ) : null}
+      </div>
     </main>
   );
 }
@@ -249,12 +235,18 @@ function RateButton({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`card flex flex-col items-center justify-center gap-1 px-3 py-4 hover:border-ink-900 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-        emphasize ? "border-ink-900" : ""
+      className={`rounded-xl border bg-ink-0 transition-colors flex flex-col items-center justify-center gap-0.5 px-3 py-3 disabled:opacity-50 disabled:cursor-not-allowed ${
+        emphasize
+          ? "border-ink-900 hover:bg-ink-900 hover:text-ink-0"
+          : "border-ink-200 hover:border-ink-900 hover:bg-ink-50"
       }`}
     >
-      <span className="text-sm font-medium text-ink-900">{label}</span>
-      <span className="text-xs text-ink-500 tabular-nums">{sub}</span>
+      <span className="text-sm font-medium">{label}</span>
+      <span
+        className={`text-[11px] tabular-nums ${emphasize ? "text-ink-500" : "text-ink-500"}`}
+      >
+        {sub}
+      </span>
     </button>
   );
 }

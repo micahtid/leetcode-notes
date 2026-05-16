@@ -1,6 +1,6 @@
 "use client";
 
-export type GroupBy = "none" | "date" | "tag";
+export type GroupBy = "none" | "date" | "tag" | "due";
 
 type Props = {
   value: GroupBy;
@@ -11,6 +11,7 @@ const OPTS: { value: GroupBy; label: string }[] = [
   { value: "none", label: "Flat" },
   { value: "date", label: "Date" },
   { value: "tag", label: "Tag" },
+  { value: "due", label: "Next Review" },
 ];
 
 export function GroupBySwitcher({ value, onChange }: Props) {

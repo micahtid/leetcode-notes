@@ -1,6 +1,20 @@
-// SM-2 (SuperMemo 2) — classic Anki algorithm.
-// Rating maps to "quality" 0..5; we expose 4 buttons:
-//   Forgot = 1, Hard = 3, Good = 4, Easy = 5.
+// SM-2 (SuperMemo 2) with a sane first-review phase so the four buttons
+// schedule visibly different intervals from the start.
+//
+// First review (repetitions = 0):
+//   Forgot → due now    (re-enter queue immediately)
+//   Hard   → in 1 day
+//   Good   → in 3 days
+//   Easy   → in 7 days
+//
+// Subsequent reviews:
+//   Forgot → reset, due now
+//   Hard   → interval * 1.2  (modest growth)
+//   Good   → interval * easeFactor   (canonical SM-2 step)
+//   Easy   → interval * easeFactor * 1.3 (faster growth)
+//
+// Ease factor adjusts after every review by the standard SM-2 formula and
+// floors at 1.3.
 
 export type Rating = "forgot" | "hard" | "good" | "easy";
 
@@ -19,22 +33,19 @@ export function initialCardState(now: number = Date.now()): CardState {
     easeFactor: 2.5,
     intervalDays: 0,
     repetitions: 0,
-    dueDate: now, // immediately due, so new cards enter the review queue
+    dueDate: now, // new cards are immediately due
     lastReviewedAt: 0,
   };
 }
 
 function qualityFor(rating: Rating): number {
-  switch (rating) {
-    case "forgot":
-      return 1;
-    case "hard":
-      return 3;
-    case "good":
-      return 4;
-    case "easy":
-      return 5;
-  }
+  return rating === "forgot"
+    ? 1
+    : rating === "hard"
+      ? 3
+      : rating === "good"
+        ? 4
+        : 5;
 }
 
 export function applyReview(
@@ -42,35 +53,27 @@ export function applyReview(
   rating: Rating,
   now: number = Date.now(),
 ): CardState {
-  const state: CardState = {
-    easeFactor: prev?.easeFactor ?? 2.5,
-    intervalDays: prev?.intervalDays ?? 0,
-    repetitions: prev?.repetitions ?? 0,
-    dueDate: prev?.dueDate ?? now,
-    lastReviewedAt: prev?.lastReviewedAt ?? 0,
-  };
+  let easeFactor = prev?.easeFactor ?? 2.5;
+  let intervalDays = prev?.intervalDays ?? 0;
+  let repetitions = prev?.repetitions ?? 0;
 
   const quality = qualityFor(rating);
-  let { easeFactor, intervalDays, repetitions } = state;
 
-  if (quality < 3) {
-    // Forgot — restart the schedule.
+  if (rating === "forgot") {
     repetitions = 0;
-    intervalDays = 1;
+    intervalDays = 0;
+  } else if (repetitions === 0) {
+    if (rating === "hard") intervalDays = 1;
+    else if (rating === "good") intervalDays = 3;
+    else intervalDays = 7;
+    repetitions = 1;
   } else {
-    if (repetitions === 0) {
-      intervalDays = 1;
-    } else if (repetitions === 1) {
-      intervalDays = 6;
-    } else {
-      intervalDays = Math.round(intervalDays * easeFactor);
-    }
-    if (rating === "easy") {
-      intervalDays = Math.max(intervalDays, Math.round(intervalDays * 1.3));
-    }
     if (rating === "hard") {
-      // SM-2 doesn't specially handle "hard"; Anki dampens its growth.
-      intervalDays = Math.max(1, Math.round(intervalDays * 0.6));
+      intervalDays = Math.max(1, Math.round(intervalDays * 1.2));
+    } else if (rating === "good") {
+      intervalDays = Math.max(1, Math.round(intervalDays * easeFactor));
+    } else {
+      intervalDays = Math.max(1, Math.round(intervalDays * easeFactor * 1.3));
     }
     repetitions += 1;
   }
@@ -80,22 +83,27 @@ export function applyReview(
     easeFactor + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02));
   if (easeFactor < 1.3) easeFactor = 1.3;
 
-  const dueDate = now + intervalDays * MS_PER_DAY;
-
   return {
     easeFactor,
     intervalDays,
     repetitions,
-    dueDate,
+    dueDate: now + intervalDays * MS_PER_DAY,
     lastReviewedAt: now,
   };
 }
 
-// Human-readable "in X" phrase from now until target.
-export function relativeIntervalLabel(intervalDays: number): string {
-  if (intervalDays < 1) return "now";
-  if (intervalDays === 1) return "tomorrow";
-  if (intervalDays < 30) return `in ${intervalDays}d`;
-  if (intervalDays < 365) return `in ${Math.round(intervalDays / 30)}mo`;
-  return `in ${Math.round(intervalDays / 365)}y`;
+// "Due now" / "Today" / "Tomorrow" / "in 3d" / "in 2w" / "in 1mo".
+export function relativeDueLabel(
+  dueDate: number,
+  now: number = Date.now(),
+): string {
+  const diffMs = dueDate - now;
+  if (diffMs <= 0) return "Due now";
+  const days = diffMs / MS_PER_DAY;
+  if (days < 1) return "Today";
+  if (days < 2) return "Tomorrow";
+  if (days < 14) return `in ${Math.round(days)}d`;
+  if (days < 60) return `in ${Math.round(days / 7)}w`;
+  if (days < 365) return `in ${Math.round(days / 30)}mo`;
+  return `in ${Math.round(days / 365)}y`;
 }

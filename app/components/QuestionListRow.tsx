@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import { DifficultyChip, type Difficulty } from "./DifficultyChip";
+import { relativeDueLabel } from "../../lib/srs";
 
 export type QuestionRow = {
   _id: string;
@@ -12,6 +13,10 @@ export type QuestionRow = {
 };
 
 export function QuestionListRow({ q }: { q: QuestionRow }) {
+  const dueDate = q.dueDate ?? q._creationTime;
+  const dueLabel = relativeDueLabel(dueDate);
+  const isDue = dueDate <= Date.now();
+
   return (
     <Link
       href={`/q/${q._id}`}
@@ -29,12 +34,18 @@ export function QuestionListRow({ q }: { q: QuestionRow }) {
             </span>
           ))}
         </div>
-        <p className="mt-1 text-xs text-ink-500">
-          {new Date(q._creationTime).toLocaleDateString(undefined, {
-            year: "numeric",
-            month: "short",
-            day: "numeric",
-          })}
+        <p className="mt-1 text-xs text-ink-500 flex items-center gap-2">
+          <span>
+            {new Date(q._creationTime).toLocaleDateString(undefined, {
+              year: "numeric",
+              month: "short",
+              day: "numeric",
+            })}
+          </span>
+          <span className="text-ink-400">·</span>
+          <span className={isDue ? "text-ink-900 font-medium" : "text-ink-500"}>
+            {dueLabel}
+          </span>
         </p>
       </div>
       <span

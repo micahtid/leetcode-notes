@@ -1,7 +1,5 @@
 "use client";
 
-import Link from "next/link";
-import { Plus, Sparkles } from "lucide-react";
 import { GroupBySwitcher, type GroupBy } from "./GroupBySwitcher";
 import { TagFilter } from "./TagFilter";
 import type { Difficulty } from "./DifficultyChip";
@@ -19,7 +17,6 @@ type Props = {
   selectedTags: string[];
   onToggleTag: (tag: string) => void;
   onClearTags: () => void;
-  dueCount: number;
 };
 
 const DIFFICULTIES: DifficultyFilter[] = ["All", "Easy", "Medium", "Hard"];
@@ -35,7 +32,6 @@ export function Toolbar({
   selectedTags,
   onToggleTag,
   onClearTags,
-  dueCount,
 }: Props) {
   return (
     <div className="flex flex-col gap-3 mb-6">
@@ -49,7 +45,11 @@ export function Toolbar({
           aria-label="Search by title"
         />
 
-        <div className="segmented" role="tablist" aria-label="Difficulty filter">
+        <div
+          className="segmented"
+          role="tablist"
+          aria-label="Difficulty filter"
+        >
           {DIFFICULTIES.map((d) => (
             <button
               key={d}
@@ -64,20 +64,8 @@ export function Toolbar({
           ))}
         </div>
 
-        <div className="ml-auto flex items-center gap-3">
+        <div className="ml-auto">
           <GroupBySwitcher value={groupBy} onChange={onGroupByChange} />
-          <Link
-            href="/review"
-            className={`btn ${dueCount > 0 ? "btn-primary" : "btn-ghost"}`}
-            aria-label={`Review ${dueCount} due cards`}
-          >
-            <Sparkles size={14} strokeWidth={2} />
-            <span>Review{dueCount > 0 ? ` (${dueCount})` : ""}</span>
-          </Link>
-          <Link href="/q/new" className="btn btn-primary">
-            <Plus size={14} strokeWidth={2} />
-            <span>New Question</span>
-          </Link>
         </div>
       </div>
 

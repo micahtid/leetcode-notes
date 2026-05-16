@@ -163,19 +163,21 @@ function applyReview(
 
   const quality = qualityFor(rating);
 
-  if (quality < 3) {
+  if (rating === "forgot") {
     repetitions = 0;
-    intervalDays = 1;
+    intervalDays = 0;
+  } else if (repetitions === 0) {
+    if (rating === "hard") intervalDays = 1;
+    else if (rating === "good") intervalDays = 3;
+    else intervalDays = 7;
+    repetitions = 1;
   } else {
-    if (repetitions === 0) intervalDays = 1;
-    else if (repetitions === 1) intervalDays = 6;
-    else intervalDays = Math.round(intervalDays * easeFactor);
-
-    if (rating === "easy") {
-      intervalDays = Math.max(intervalDays, Math.round(intervalDays * 1.3));
-    }
     if (rating === "hard") {
-      intervalDays = Math.max(1, Math.round(intervalDays * 0.6));
+      intervalDays = Math.max(1, Math.round(intervalDays * 1.2));
+    } else if (rating === "good") {
+      intervalDays = Math.max(1, Math.round(intervalDays * easeFactor));
+    } else {
+      intervalDays = Math.max(1, Math.round(intervalDays * easeFactor * 1.3));
     }
     repetitions += 1;
   }

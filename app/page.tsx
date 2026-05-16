@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "convex/react";
+import { Plus, Sparkles } from "lucide-react";
 import { api } from "../convex/_generated/api";
 import { PageHeader } from "./components/PageHeader";
 import { Toolbar, type DifficultyFilter } from "./components/Toolbar";
@@ -10,6 +11,7 @@ import type { GroupBy } from "./components/GroupBySwitcher";
 import { QuestionListRow, type QuestionRow } from "./components/QuestionListRow";
 
 const GROUP_STORAGE_KEY = "leetcode:groupBy";
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 export default function Home() {
   const data = useQuery(api.questions.list);
@@ -23,7 +25,9 @@ export default function Home() {
   useEffect(() => {
     try {
       const v = localStorage.getItem(GROUP_STORAGE_KEY);
-      if (v === "none" || v === "date" || v === "tag") setGroupBy(v);
+      if (v === "none" || v === "date" || v === "tag" || v === "due") {
+        setGroupBy(v);
+      }
     } catch {}
   }, []);
 
@@ -73,6 +77,22 @@ export default function Home() {
       <PageHeader
         title="LeetCode Notes"
         subtitle="A quiet place to take notes on problems."
+        action={
+          <div className="flex items-center gap-2">
+            <Link
+              href="/review"
+              className={`btn ${dueCount > 0 ? "btn-primary" : "btn-ghost"}`}
+              aria-label={`Review ${dueCount} due cards`}
+            >
+              <Sparkles size={14} strokeWidth={2} />
+              <span>Review{dueCount > 0 ? ` (${dueCount})` : ""}</span>
+            </Link>
+            <Link href="/q/new" className="btn btn-primary">
+              <Plus size={14} strokeWidth={2} />
+              <span>New Question</span>
+            </Link>
+          </div>
+        }
       />
 
       <Toolbar
@@ -86,7 +106,6 @@ export default function Home() {
         selectedTags={selectedTags}
         onToggleTag={toggleTag}
         onClearTags={() => setSelectedTags([])}
-        dueCount={dueCount}
       />
 
       {grouped === undefined ? (
@@ -159,7 +178,8 @@ function groupRows(rows: QuestionRow[], by: GroupBy): Group[] {
     return rows.length === 0 ? [] : [{ key: "all", label: "All", items: rows }];
   }
   if (by === "date") return groupByDate(rows);
-  return groupByTag(rows);
+  if (by === "tag") return groupByTag(rows);
+  return groupByDue(rows);
 }
 
 function groupByDate(rows: QuestionRow[]): Group[] {
@@ -169,8 +189,8 @@ function groupByDate(rows: QuestionRow[]): Group[] {
     now.getMonth(),
     now.getDate(),
   ).getTime();
-  const startOfWeek = startOfToday - 6 * 24 * 60 * 60 * 1000;
-  const startOfMonth = startOfToday - 29 * 24 * 60 * 60 * 1000;
+  const startOfWeek = startOfToday - 6 * MS_PER_DAY;
+  const startOfMonth = startOfToday - 29 * MS_PER_DAY;
 
   const buckets: Group[] = [
     { key: "today", label: "Today", items: [] },
@@ -212,4 +232,37 @@ function groupByTag(rows: QuestionRow[]): Group[] {
     groups.push({ key: "untagged", label: "Untagged", items: untagged });
   }
   return groups;
+}
+
+function groupByDue(rows: QuestionRow[]): Group[] {
+  const now = Date.now();
+  const inOneDay = now + MS_PER_DAY;
+  const inOneWeek = now + 7 * MS_PER_DAY;
+  const inOneMonth = now + 30 * MS_PER_DAY;
+
+  const buckets: Group[] = [
+    { key: "due", label: "Due Now", items: [] },
+    { key: "soon", label: "Within a Day", items: [] },
+    { key: "week", label: "This Week", items: [] },
+    { key: "month", label: "This Month", items: [] },
+    { key: "later", label: "Later", items: [] },
+  ];
+
+  // Within each bucket, keep items sorted by ascending dueDate
+  // so the most-imminent one shows first.
+  const sorted = [...rows].sort(
+    (a, b) =>
+      (a.dueDate ?? a._creationTime) - (b.dueDate ?? b._creationTime),
+  );
+
+  for (const q of sorted) {
+    const due = q.dueDate ?? q._creationTime;
+    if (due <= now) buckets[0].items.push(q);
+    else if (due <= inOneDay) buckets[1].items.push(q);
+    else if (due <= inOneWeek) buckets[2].items.push(q);
+    else if (due <= inOneMonth) buckets[3].items.push(q);
+    else buckets[4].items.push(q);
+  }
+
+  return buckets.filter((b) => b.items.length > 0);
 }
