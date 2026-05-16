@@ -2,7 +2,10 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import { useQuery } from "convex/react";
+import { api } from "../../convex/_generated/api";
 import type { Difficulty } from "./DifficultyChip";
+import { TagsInput } from "./TagsInput";
 
 const DIFFICULTIES: Difficulty[] = ["Easy", "Medium", "Hard"];
 
@@ -10,6 +13,7 @@ type Initial = {
   title: string;
   difficulty: Difficulty;
   body: string;
+  tags: string[];
 };
 
 type Props = {
@@ -33,14 +37,17 @@ export function QuestionForm({
     initial?.difficulty ?? "Easy",
   );
   const [body, setBody] = useState(initial?.body ?? "");
+  const [tags, setTags] = useState<string[]>(initial?.tags ?? []);
   const [saving, setSaving] = useState(false);
+
+  const suggestions = useQuery(api.questions.listTags) ?? [];
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (!title.trim() || saving) return;
     setSaving(true);
     try {
-      await onSubmit({ title: title.trim(), difficulty, body });
+      await onSubmit({ title: title.trim(), difficulty, body, tags });
     } finally {
       setSaving(false);
     }
@@ -91,6 +98,19 @@ export function QuestionForm({
             </button>
           ))}
         </div>
+      </div>
+
+      <div>
+        <span className="label">Tags</span>
+        <TagsInput
+          value={tags}
+          onChange={setTags}
+          suggestions={suggestions}
+          placeholder="Add tags... (Enter to commit)"
+        />
+        <p className="mt-2 text-xs text-ink-500">
+          Pick from existing tags or type a new one and hit Enter.
+        </p>
       </div>
 
       <div>

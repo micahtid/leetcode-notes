@@ -1,25 +1,46 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "convex/react";
 import { api } from "../convex/_generated/api";
 import { PageHeader } from "./components/PageHeader";
 import { Toolbar, type DifficultyFilter } from "./components/Toolbar";
-import { useView } from "./components/ViewSwitcher";
+import type { GroupBy } from "./components/GroupBySwitcher";
 import { QuestionListRow, type QuestionRow } from "./components/QuestionListRow";
-import { QuestionGridCard } from "./components/QuestionGridCard";
-import { QuestionTable } from "./components/QuestionTable";
+
+const GROUP_STORAGE_KEY = "leetcode:groupBy";
 
 export default function Home() {
   const data = useQuery(api.questions.list);
+  const allTags = useQuery(api.questions.listTags) ?? [];
+
   const [search, setSearch] = useState("");
   const [difficulty, setDifficulty] = useState<DifficultyFilter>("All");
-  const [view, setView] = useView();
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [groupBy, setGroupBy] = useState<GroupBy>("none");
 
-  const rows: QuestionRow[] | undefined = data as
-    | QuestionRow[]
-    | undefined;
+  useEffect(() => {
+    try {
+      const v = localStorage.getItem(GROUP_STORAGE_KEY);
+      if (v === "none" || v === "date" || v === "tag") setGroupBy(v);
+    } catch {}
+  }, []);
+
+  function changeGroup(v: GroupBy) {
+    setGroupBy(v);
+    try {
+      localStorage.setItem(GROUP_STORAGE_KEY, v);
+    } catch {}
+  }
+
+  function toggleTag(t: string) {
+    setSelectedTags((prev) =>
+      prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t],
+    );
+  }
+
+  const rows: QuestionRow[] | undefined = data as QuestionRow[] | undefined;
 
   const filtered = useMemo(() => {
     if (!rows) return undefined;
@@ -27,9 +48,25 @@ export default function Home() {
     return rows.filter((q) => {
       if (difficulty !== "All" && q.difficulty !== difficulty) return false;
       if (term && !q.title.toLowerCase().includes(term)) return false;
+      if (selectedTags.length > 0) {
+        const tagSet = new Set((q.tags ?? []).map((t) => t.toLowerCase()));
+        const wantAll = selectedTags.every((t) => tagSet.has(t.toLowerCase()));
+        if (!wantAll) return false;
+      }
       return true;
     });
-  }, [rows, search, difficulty]);
+  }, [rows, search, difficulty, selectedTags]);
+
+  const dueCount = useMemo(() => {
+    if (!rows) return 0;
+    const now = Date.now();
+    return rows.filter((q) => (q.dueDate ?? q._creationTime) <= now).length;
+  }, [rows]);
+
+  const grouped = useMemo(() => {
+    if (!filtered) return undefined;
+    return groupRows(filtered, groupBy);
+  }, [filtered, groupBy]);
 
   return (
     <main className="flex-1 max-w-5xl mx-auto w-full px-5 sm:px-6 py-10 sm:py-12 animate-page-in">
@@ -43,34 +80,44 @@ export default function Home() {
         onSearchChange={setSearch}
         difficulty={difficulty}
         onDifficultyChange={setDifficulty}
-        view={view}
-        onViewChange={setView}
+        groupBy={groupBy}
+        onGroupByChange={changeGroup}
+        allTags={allTags}
+        selectedTags={selectedTags}
+        onToggleTag={toggleTag}
+        onClearTags={() => setSelectedTags([])}
+        dueCount={dueCount}
       />
 
-      {filtered === undefined ? (
+      {grouped === undefined ? (
         <LoadingState />
-      ) : filtered.length === 0 ? (
+      ) : grouped.length === 0 ? (
         rows && rows.length === 0 ? (
           <EmptyState />
         ) : (
           <NoMatchesState />
         )
-      ) : view === "table" ? (
-        <QuestionTable rows={filtered} />
-      ) : view === "grid" ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {filtered.map((q) => (
-            <QuestionGridCard key={q._id} q={q} />
+      ) : (
+        <div className="flex flex-col gap-8">
+          {grouped.map((g) => (
+            <section key={g.key}>
+              {groupBy !== "none" ? (
+                <h2 className="text-xs font-medium text-ink-500 mb-3 flex items-center gap-2">
+                  <span>{g.label}</span>
+                  <span className="text-ink-400">·</span>
+                  <span className="text-ink-400 tabular-nums">{g.items.length}</span>
+                </h2>
+              ) : null}
+              <ul className="flex flex-col gap-3">
+                {g.items.map((q) => (
+                  <li key={q._id}>
+                    <QuestionListRow q={q} />
+                  </li>
+                ))}
+              </ul>
+            </section>
           ))}
         </div>
-      ) : (
-        <ul className="flex flex-col gap-3">
-          {filtered.map((q) => (
-            <li key={q._id}>
-              <QuestionListRow q={q} />
-            </li>
-          ))}
-        </ul>
       )}
     </main>
   );
@@ -101,4 +148,66 @@ function NoMatchesState() {
       <p className="text-sm text-ink-500">No Questions Match Your Filters.</p>
     </div>
   );
+}
+
+type Group = { key: string; label: string; items: QuestionRow[] };
+
+function groupRows(rows: QuestionRow[], by: GroupBy): Group[] {
+  if (by === "none") {
+    return rows.length === 0 ? [] : [{ key: "all", label: "All", items: rows }];
+  }
+  if (by === "date") return groupByDate(rows);
+  return groupByTag(rows);
+}
+
+function groupByDate(rows: QuestionRow[]): Group[] {
+  const now = new Date();
+  const startOfToday = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate(),
+  ).getTime();
+  const startOfWeek = startOfToday - 6 * 24 * 60 * 60 * 1000;
+  const startOfMonth = startOfToday - 29 * 24 * 60 * 60 * 1000;
+
+  const buckets: Group[] = [
+    { key: "today", label: "Today", items: [] },
+    { key: "week", label: "This Week", items: [] },
+    { key: "month", label: "This Month", items: [] },
+    { key: "older", label: "Older", items: [] },
+  ];
+
+  for (const q of rows) {
+    const t = q._creationTime;
+    if (t >= startOfToday) buckets[0].items.push(q);
+    else if (t >= startOfWeek) buckets[1].items.push(q);
+    else if (t >= startOfMonth) buckets[2].items.push(q);
+    else buckets[3].items.push(q);
+  }
+
+  return buckets.filter((b) => b.items.length > 0);
+}
+
+function groupByTag(rows: QuestionRow[]): Group[] {
+  const map = new Map<string, QuestionRow[]>();
+  const untagged: QuestionRow[] = [];
+  for (const q of rows) {
+    const tags = q.tags ?? [];
+    if (tags.length === 0) {
+      untagged.push(q);
+      continue;
+    }
+    for (const t of tags) {
+      const list = map.get(t) ?? [];
+      list.push(q);
+      map.set(t, list);
+    }
+  }
+  const groups: Group[] = Array.from(map.entries())
+    .sort((a, b) => a[0].toLowerCase().localeCompare(b[0].toLowerCase()))
+    .map(([tag, items]) => ({ key: `tag:${tag}`, label: tag, items }));
+  if (untagged.length > 0) {
+    groups.push({ key: "untagged", label: "Untagged", items: untagged });
+  }
+  return groups;
 }

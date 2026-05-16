@@ -7,6 +7,8 @@ export type QuestionRow = {
   _creationTime: number;
   title: string;
   difficulty: Difficulty;
+  tags?: string[];
+  dueDate?: number;
 };
 
 export function QuestionListRow({ q }: { q: QuestionRow }) {
@@ -21,6 +23,11 @@ export function QuestionListRow({ q }: { q: QuestionRow }) {
             {q.title}
           </h2>
           <DifficultyChip value={q.difficulty} />
+          {(q.tags ?? []).map((t) => (
+            <span key={t} className="chip">
+              {t}
+            </span>
+          ))}
         </div>
         <p className="mt-1 text-xs text-ink-500">
           {new Date(q._creationTime).toLocaleDateString(undefined, {

@@ -54,6 +54,7 @@ export default function EditQuestionPage({
           title: question.title,
           difficulty: question.difficulty as Difficulty,
           body: question.body,
+          tags: question.tags ?? [],
         }}
         onSubmit={async (values) => {
           await update({ id: typedId, ...values });
