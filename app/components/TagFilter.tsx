@@ -11,7 +11,7 @@ export function TagFilter({ tags, selected, onToggle, onClear }: Props) {
   if (tags.length === 0) return null;
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <span className="text-xs font-medium text-ink-500">Tags</span>
+      <span className="eyebrow">Tags</span>
       {tags.map((t) => {
         const on = selected.includes(t);
         return (

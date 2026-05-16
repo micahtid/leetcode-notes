@@ -16,7 +16,7 @@ const OPTS: { value: GroupBy; label: string }[] = [
 export function GroupBySwitcher({ value, onChange }: Props) {
   return (
     <div className="inline-flex items-center gap-2">
-      <span className="text-xs font-medium text-ink-500">Group</span>
+      <span className="eyebrow">Group</span>
       <div className="segmented" role="tablist" aria-label="Group by">
         {OPTS.map((o) => (
           <button

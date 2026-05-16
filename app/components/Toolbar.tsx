@@ -75,7 +75,7 @@ export function Toolbar({
             <span>Review{dueCount > 0 ? ` (${dueCount})` : ""}</span>
           </Link>
           <Link href="/q/new" className="btn btn-primary">
-            <Plus size={16} strokeWidth={2} />
+            <Plus size={14} strokeWidth={2} />
             <span>New Question</span>
           </Link>
         </div>

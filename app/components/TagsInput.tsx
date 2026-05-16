@@ -67,7 +67,7 @@ export function TagsInput({
   return (
     <div className="relative" ref={wrapRef}>
       <div
-        className="input flex flex-wrap items-center gap-2 cursor-text"
+        className="input flex flex-wrap items-center gap-1.5 cursor-text"
         onClick={() => setOpen(true)}
       >
         {value.map((t) => (
@@ -96,7 +96,7 @@ export function TagsInput({
           onFocus={() => setOpen(true)}
           onKeyDown={onKeyDown}
           placeholder={value.length === 0 ? (placeholder ?? "Add tags...") : ""}
-          className="flex-1 min-w-[120px] outline-none bg-transparent text-sm py-1"
+          className="flex-1 min-w-[120px] outline-none bg-transparent text-sm p-0 leading-[1.4]"
         />
       </div>
 

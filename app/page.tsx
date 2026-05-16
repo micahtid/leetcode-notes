@@ -102,10 +102,12 @@ export default function Home() {
           {grouped.map((g) => (
             <section key={g.key}>
               {groupBy !== "none" ? (
-                <h2 className="text-xs font-medium text-ink-500 mb-3 flex items-center gap-2">
+                <h2 className="eyebrow mb-3 flex items-center gap-2">
                   <span>{g.label}</span>
                   <span className="text-ink-400">·</span>
-                  <span className="text-ink-400 tabular-nums">{g.items.length}</span>
+                  <span className="text-ink-400 tabular-nums">
+                    {g.items.length}
+                  </span>
                 </h2>
               ) : null}
               <ul className="flex flex-col gap-3">

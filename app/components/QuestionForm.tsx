@@ -106,7 +106,7 @@ export function QuestionForm({
           value={tags}
           onChange={setTags}
           suggestions={suggestions}
-          placeholder="Add tags... (Enter to commit)"
+          placeholder="Add tags..."
         />
         <p className="mt-2 text-xs text-ink-500">
           Pick from existing tags or type a new one and hit Enter.
